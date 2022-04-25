@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 1. Download food supply data: The data can be downloaded from Faostat website (http://www.fao.org/faostat/en/). On "Data" tab, we accessed "Food Balances (2010-)" (under Food Balances). We selected:
 
-  - "Regions" = Eastern Africa + (Total), Middle Africa + (Total),  Southern Africa + (Total), Western Africa + (Total).
+  - "Regions (FAO)" = Eastern Africa + (Total), Middle Africa + (Total),  Southern Africa + (Total), Western Africa + (Total).
   - "Elements" = Food Supply quantity (kg/capita/yr), Food supply (kcal/capita/year)
   - "Items" = "Select All" but "Population".
   - "Years" = "Select All". (Which included from 2010-2018)
