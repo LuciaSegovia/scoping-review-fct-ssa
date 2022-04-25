@@ -22,6 +22,9 @@ readxl::excel_sheets(here::here("data", "ppl12144-sup-0002-tables2.xlsx"))
 fct <- readxl::read_excel(here::here("data", "ppl12144-sup-0002-tables2.xlsx"),
                           sheet = "S Table 2")
 
+#Units information
+fct %>% select(3, 7) %>% distinct()
+
 #cleaning and preparing fct
 
 mn <- c("Energy", "Ca", "Cu", "Fe", "I", "Mg", "Se", "Zn")
@@ -33,25 +36,28 @@ fct <- fct %>% select(2:4, 8) %>%  filter(`...3` %in% mn) %>%
   rename(region = "Supplementary Table 2. Food mineral composition data from literature sources, used in conjunction with Food Balance Sheets (FBSs) to estimate dietary mineral availability",
          food.name.original = "...4")
 
-#Getting countries and regions in Africa  
-
-africa <- raster::ccodes() %>%  filter(continent == "Africa")
-
-#Fixing names in NAME_FAO to be the same as in food balance sheet
-raster::ccodes() %>% filter(str_detect(NAME_FAO, "Congo"))
-
-africa$NAME_FAO[africa$NAME_FAO == "Cape Verde"] <-  "Cabo Verde"
-africa$NAME_FAO[africa$NAME_FAO == "Congo, Republic of"] <-  "Congo"
-africa$NAME_FAO[africa$NAME_FAO == "Congo, Dem Republic of"] <-  "Democratic Republic of the Congo"
-africa$NAME_FAO[africa$NAME_FAO == "Swaziland"] <-  "Eswatini"
-africa$NAME_FAO[africa$NAME_FAO == "Tanzania, United Rep of"] <-  "United Republic of Tanzania"
-
+##Getting countries and regions in Africa  
+#
+#africa <- raster::ccodes() %>%  filter(continent == "Africa")
+#
+##Fixing names in NAME_FAO to be the same as in food balance sheet
+#raster::ccodes() %>% filter(str_detect(NAME_FAO, "Congo"))
+#
+#africa$NAME_FAO[africa$NAME_FAO == "Cape Verde"] <-  "Cabo Verde"
+#africa$NAME_FAO[africa$NAME_FAO == "Congo, Republic of"] <-  "Congo"
+#africa$NAME_FAO[africa$NAME_FAO == "Congo, Dem Republic of"] <-  "Democratic Republic of the Congo"
+#africa$NAME_FAO[africa$NAME_FAO == "Swaziland"] <-  "Eswatini"
+#africa$NAME_FAO[africa$NAME_FAO == "Tanzania, United Rep of"] <-  "United Republic of Tanzania"
+#
 #1) Calculating MN supply in SSA
+
+years <- c(2014:2018)
+#year < 2019
 
 #loading food supply in kg/cap/year to estimate MN supply
 qty <- read_csv(here::here("data", supply))%>%
   janitor::clean_names() %>% 
-  filter(year < 2019, element_code != "664") #filter out years from after 2019 & supply in kcal 
+  filter(year %in% years, element_code != "664") #filter out years from after 2019 & supply in kcal 
                                                       #for reproducibility
 
 #Preparing food supply for merging w/ regional FCDB
@@ -59,33 +65,34 @@ qty <- read_csv(here::here("data", supply))%>%
 #1.1) Generating the variable Region per country 
 #checking country allocation per region
 
-qty %>% 
-  left_join(., africa %>% select(NAME_FAO, UNREGION1),
-            by = c("area" = "NAME_FAO")) %>%
-  filter(is.na(UNREGION1)) %>% pull(area)
+# qty %>% 
+#   left_join(., africa %>% select(NAME_FAO, UNREGION1),
+#             by = c("area" = "NAME_FAO")) %>%
+#   filter(is.na(UNREGION1)) %>% pull(area)
+
+
 
 qty <- qty %>% 
-  left_join(., africa %>% select(NAME_FAO, UNREGION1),
-            by = c("area" = "NAME_FAO")) %>% 
   mutate(Region = case_when(
-  str_detect(UNREGION1, "Eastern") ~ "E", 
-  str_detect(UNREGION1, "Western") ~ "W",
-  str_detect(UNREGION1, "Southern") ~ "S", 
-  str_detect(UNREGION1, "Middle") ~ "M",
-  TRUE ~ UNREGION1))  
+  str_detect(area, "Eastern") ~ "E", 
+  str_detect(area, "Western") ~ "W",
+  str_detect(area, "Southern") ~ "S", 
+  str_detect(area, "Middle") ~ "M",
+  TRUE ~ area))  
   
 #1.2) Unit conversion and mean food supply per food category and region (year, country)   
 
-#Mean supply of the years (2010-2018)
-mean_qty <- qty %>% group_by(item_code, item, area_code_fao, area, Region) %>% 
-  summarise(mean_value = mean(value)) %>%  #mean food supply per country 
-  ungroup() %>%  arrange(desc(mean_value))
+#Mean supply of the years 
+total_qty <- qty %>% group_by(item_code, item, area_code_fao, area, Region) %>% 
+  summarise(total_value = mean(value)*10/365) %>%  #mean food supply per country 
+  ungroup() %>%  arrange(desc(total_value)) %>% 
+  mutate_at("item", str_to_lower)
 
 #Total supply in each region (100g/capita/day)
-total_qty <- mean_qty %>%  group_by(item_code, item, Region) %>% 
-  summarise(total_value = sum(mean_value)*10/365) %>% 
-  arrange(desc(total_value)) %>% 
-  mutate_at("item", str_to_lower)
+#total_qty <- mean_qty %>%  group_by(item_code, item, Region) %>% 
+#  summarise(total_value = sum(mean_value)*10/365) %>% 
+#  arrange(desc(total_value)) %>% 
+#  mutate_at("item", str_to_lower)
   
 #Binding food supply with fct by name and code
 fct_fao_codes <- fct %>% select(food.name.original) %>% distinct() %>% 
@@ -160,11 +167,13 @@ left_join(total_qty , fct, by = c("item_code",
 # Rape and Mustardseed (below 0.1*100g/cap/day)
 # Palm kernels -> remove because is < 0
 
+n <- length(fao_fct)
+
 for(i in 1:length(mn)){
   
-fao_fct[15+i] <-  (fao_fct$total_value * fao_fct[mn[i]])
+fao_fct[n+i] <-  (fao_fct$total_value * fao_fct[mn[i]])
 
-colnames(fao_fct)[15+i] <- paste0(mn[i], "_cap_day")
+colnames(fao_fct)[n+i] <- paste0(mn[i], "_cap_day")
 
 }
   
@@ -204,20 +213,11 @@ top10 %>% ungroup() %>% select(1:4) %>% filter(element != "total_value") %>%
   relocate(Energy_cap_day, .after = item) %>% arrange(desc(Energy_cap_day)) %>% 
   write.csv(., here::here("output", "pre-selected-food-list-ssa.csv"), row.names = F)
 
-  
-
-# Need to compare Energy from FAOSTAT and pivot table to see items and quantities
-# Same items but slight different order. We have found discrepancies: 
-# we need to include plantain (from the energy both methods) and potatoes
-# remove sesame seeds and oilcrops, 
-
-
-
 #Food supply: top-10 food categories by kcal to compare with our Energy calculations
 #calculating the yearly and region mean % of supply
 
 ener <- read_csv(here::here("data", supply)) %>%
-  janitor::clean_names() %>% filter(year < 2019, element_code != "664") %>% 
+  janitor::clean_names() %>% filter(year %in% years, element_code == "664") %>% 
   group_by(element_code, element, item_code, item) %>% 
   summarise(ave = mean(value), 
             total = sum(value))
@@ -231,4 +231,67 @@ ener_list2 <- ener %>% ungroup() %>%
 tolower(ener_list1) == tolower(ener_list2)
 
 all.equal(ener_list1, tolower(ener_list2))
-setdiff(ener_list1, tolower(ener_list2))
+
+#Difference between our Energy calculations and the one reported by the FAO
+setdiff(tolower(ener_list2),ener_list1)
+#setdiff(ener_list1, tolower(ener_list2))
+
+#Checking that they are all included in the final selection
+setdiff(tolower(ener_list2), food_list)
+
+#Table with the FAO food categories to be included
+
+elements <- c("Energy_cap_day", "Ca_cap_day" ,"Cu_cap_day"  ,"Fe_cap_day","I_cap_day","Mg_cap_day", "Se_cap_day", "Zn_cap_day" )
+
+
+
+top10 %>% ungroup() %>% select(1:4) %>% filter(element != "total_value") %>% 
+  pivot_wider(names_from = element, 
+              values_from = ave) %>% 
+  relocate(Energy_cap_day, .after = item) %>% arrange(desc(Energy_cap_day)) %>%
+  rename_at(elements, ~gsub("_cap_day", "", elements)) %>% 
+  gt()  %>% 
+  tab_header(title = "Energy and mineral supplies in sub-Saharan Africa from 2014 to 2018") %>% 
+  tab_spanner(
+    label = "FAO Food Balance - Food Categories",
+    columns = c("item_code", "item")) %>%
+  tab_spanner(
+    label = "Supply per capita per day",
+    columns = c("Energy", "Ca" ,"Cu",
+                "Fe","I","Mg", "Se", "Zn" ))  %>%
+  fmt_number(
+    columns = c("Energy", "Ca" ,"Cu",
+                "Fe","I","Mg", "Se", "Zn" ),
+    decimals = 2,
+    use_seps = TRUE) %>%
+  fmt_missing(
+    columns = everything(),
+    missing_text = "")   %>% 
+  text_transform(
+      locations = cells_body(columns = item),
+      fn = function(x) str_to_sentence (x)
+    ) %>% 
+  cols_label(
+    item_code = "Id.",
+    item = "Desc.",
+    Energy = html("Energy,<br>kcal"),
+    Ca = html("Ca,<br>mg"),
+    Cu = html("Cu,<br>mg"),
+    Fe = html("Fe,<br>mg"),  
+    I = html("I,<br>mcg"),
+    Mg = html("Mg,<br>mg"),
+    Se = html("Se,<br>mcg"),
+    Zn = html("Zn,<br>mg"))  %>%
+  tab_options(
+    column_labels.font.size = "smaller",
+    table.font.size = "smaller",
+    data_row.padding = px(3)
+  ) %>% 
+  tab_source_note(
+    source_note = html("Data on supply (quantity in kg/cap/year) was obtained 
+    from FAOSTAT (FAO, 2020) and,<br>
+    food composition data was obtained from Joy et al., 2015")) 
+  
+  
+  
+#write.csv(., here::here("output", "pre-selected-food-list-ssa.csv"), row.names = F)

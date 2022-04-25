@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 1. Download food supply data: The data can be downloaded from Faostat website (http://www.fao.org/faostat/en/). On "Data" tab, we accessed "Food Balances (2010-)" (under Food Balances). We selected:
 
-  - "Regions" = Eastern Africa + (List), Middle Africa + (List),  Southern Africa + (List), Western Africa + (List).
+  - "Regions" = Eastern Africa + (Total), Middle Africa + (Total),  Southern Africa + (Total), Western Africa + (Total).
   - "Elements" = Food Supply quantity (kg/capita/yr), Food supply (kcal/capita/year)
   - "Items" = "Select All" but "Population".
   - "Years" = "Select All". (Which included from 2010-2018)
@@ -43,12 +43,11 @@ Regional FCT were prepared to be matched with "old Food Balance Sheet", however 
 
 #Checking with energy intake
 
-
-When using Western Africa FCT for Middle Africa FCT, we have four food categories that are different in the top10 energy selection: "millet and products", "palm oil" , "sorghum and products", "sugar (raw equivalent)". 
-
+For aggregated data at region level from 2014-2018. The mean supply of energy was calculated and selected the top ten food categories. Then compared with our results. Four food categories were reported as inconsistent bewteen the FAO and our calculated top ten energy contributors. "milk - excluding butter", "millet and products" were reported as top10 suppliers of Energy for the region whereas we found groundnuts and plantains. However, those two food categories were reported in the final food list, leading to no discrepancies.        
 
 ```{r }
 
+setdiff(tolower(ener_list2),ener_list1)
 setdiff(ener_list1, tolower(ener_list2))
 
 ```
