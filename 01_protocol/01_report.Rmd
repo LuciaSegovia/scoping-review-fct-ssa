@@ -16,19 +16,16 @@ knitr::opts_chunk$set(echo = TRUE)
 1. Download food supply data: The data can be downloaded from Faostat website (http://www.fao.org/faostat/en/). On "Data" tab, we accessed "Food Balances (2010-)" (under Food Balances). We selected:
 
   - "Regions" = Eastern Africa + (List), Middle Africa + (List),  Southern Africa + (List), Western Africa + (List).
-  - "Elements" = Food Supply quantity (kg/capita/yr) 
+  - "Elements" = Food Supply quantity (kg/capita/yr), Food supply (kcal/capita/year)
   - "Items" = "Select All" but "Population".
   - "Years" = "Select All". (Which included from 2010-2018)
-  
-We downloaded food supply data (Energy) by applying the same filters as above except for "Elements" which was changed to "Food supply (kcal/capita/year)".
 
-Download date: 
-
+Last accessed and downloading date: 25/04/2022.
 
 
 2. Download food composition data: The data can be downloaded from Joy et al. (2014) (https://onlinelibrary.wiley.com/doi/full/10.1111/ppl.12144). Supporting Information: Table S2. Food mineral composition data from literature sources, used in conjunction with FBSs to estimate dietary mineral availability. File name: ppl12144-sup-0002-TableS2.xlsx. 
 
-We downloaded the data on: 05/05/2021.
+Last accessed and downloading on: 25/04/2022.
 
 In previous work by Joy et al. (2014), they used Western FCT for the Middle region as well, and that is what we have done. *This is to be reviewed* 
 
@@ -43,9 +40,16 @@ summary(cars)
 Regional FCT were prepared to be matched with "old Food Balance Sheet", however we are using the "new" Food Balance Sheet. There methodological differences that need to be explored if we want to combine and use data from both (new and old), but that is beyond the scope of this review. Nevertheless, there is one arrange to be done. Rice and Groundnuts code have been change. This is because the reported commodity state is different (husked vs paddy and shelled vs in shell). We are not making any adjustments to this as we do are not using the data for analysis but for rough estimations of the importance of food items in supply. 
 
 
+
+#Checking with energy intake
+
+
+When using Western Africa FCT for Middle Africa FCT, we have four food categories that are different in the top10 energy selection: "millet and products", "palm oil" , "sorghum and products", "sugar (raw equivalent)". 
+
+
 ```{r }
 
-knitr::kable(x)
+setdiff(ener_list1, tolower(ener_list2))
 
 ```
 

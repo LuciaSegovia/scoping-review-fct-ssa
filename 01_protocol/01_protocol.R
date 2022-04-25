@@ -1,27 +1,28 @@
 
 library(tidyverse)
+library(gt)
+#library(gtExtras)
+
 
 #0) Loading the data
 
 #food balance sheet (FAO, 2020)
 
-read_csv(here::here("data", "FBS-supply-SSA-2014-2018.csv"))
-read_csv(here::here("data", "FBS-energy-SSA-2014-2018.csv")) 
+#loading path as downloaded from FAOSTAT
+
+supply <- paste0("FAOSTAT_data_", gsub("^0", "", format(Sys.Date(), "%m-%d-%Y")), ".csv")
+
+read_csv(here::here("data", supply))
 
 #regional FCDB: regional food composition data for SSA (Joy et al, 2014)
-
-read.csv(here::here("data", "regional-SSA-fct-fbs-codes.csv"))
-
-fct <- read.csv(here::here("data", "regional-SSA-fct-fbs-codes.csv")) %>% #select variables of interest
-  select(Region:Zn_mg, ID_1, FoodName_1) %>% 
-  relocate(c(ID_1, FoodName_1), .before = "Region") %>% distinct() #re-arrenging columns
-
 #Concentration (100 g-1 fresh weight)
 
 readxl::excel_sheets(here::here("data", "ppl12144-sup-0002-tables2.xlsx"))
 
 fct <- readxl::read_excel(here::here("data", "ppl12144-sup-0002-tables2.xlsx"),
                           sheet = "S Table 2")
+
+#cleaning and preparing fct
 
 mn <- c("Energy", "Ca", "Cu", "Fe", "I", "Mg", "Se", "Zn")
 
@@ -32,28 +33,32 @@ fct <- fct %>% select(2:4, 8) %>%  filter(`...3` %in% mn) %>%
   rename(region = "Supplementary Table 2. Food mineral composition data from literature sources, used in conjunction with Food Balance Sheets (FBSs) to estimate dietary mineral availability",
          food.name.original = "...4")
 
-#countries and regions in Africa  
+#Getting countries and regions in Africa  
 
 africa <- raster::ccodes() %>%  filter(continent == "Africa")
 
 #Fixing names in NAME_FAO to be the same as in food balance sheet
-raster::ccodes() %>% filter(str_detect(NAME_FAO, "Tanzania"))
+raster::ccodes() %>% filter(str_detect(NAME_FAO, "Congo"))
 
 africa$NAME_FAO[africa$NAME_FAO == "Cape Verde"] <-  "Cabo Verde"
 africa$NAME_FAO[africa$NAME_FAO == "Congo, Republic of"] <-  "Congo"
+africa$NAME_FAO[africa$NAME_FAO == "Congo, Dem Republic of"] <-  "Democratic Republic of the Congo"
 africa$NAME_FAO[africa$NAME_FAO == "Swaziland"] <-  "Eswatini"
 africa$NAME_FAO[africa$NAME_FAO == "Tanzania, United Rep of"] <-  "United Republic of Tanzania"
 
 #1) Calculating MN supply in SSA
 
 #loading food supply in kg/cap/year to estimate MN supply
-qty <- read_csv(here::here("data", "FBS-supply-SSA-2014-2018.csv")) %>%
-  janitor::clean_names() %>% filter(element_code != "511") #filter out pop. count
+qty <- read_csv(here::here("data", supply))%>%
+  janitor::clean_names() %>% 
+  filter(year < 2019, element_code != "664") #filter out years from after 2019 & supply in kcal 
+                                                      #for reproducibility
 
 #Preparing food supply for merging w/ regional FCDB
 
 #1.1) Generating the variable Region per country 
 #checking country allocation per region
+
 qty %>% 
   left_join(., africa %>% select(NAME_FAO, UNREGION1),
             by = c("area" = "NAME_FAO")) %>%
@@ -71,16 +76,20 @@ qty <- qty %>%
   
 #1.2) Unit conversion and mean food supply per food category and region (year, country)   
 
-mean_qty <- qty %>% group_by(item_code, item, area_code, area, Region) %>% 
+#Mean supply of the years (2010-2018)
+mean_qty <- qty %>% group_by(item_code, item, area_code_fao, area, Region) %>% 
   summarise(mean_value = mean(value)) %>%  #mean food supply per country 
   ungroup() %>%  arrange(desc(mean_value))
- 
-total_qty <- mean_qty %>%  group_by(item_code, item, Region) %>% 
-  summarise(total_value = sum(mean_value)*10/365) %>% #total supply per region (100g/capita/day)
-  arrange(desc(total_value)) 
-  
 
+#Total supply in each region (100g/capita/day)
+total_qty <- mean_qty %>%  group_by(item_code, item, Region) %>% 
+  summarise(total_value = sum(mean_value)*10/365) %>% 
+  arrange(desc(total_value)) %>% 
+  mutate_at("item", str_to_lower)
+  
+#Binding food supply with fct by name and code
 fct_fao_codes <- fct %>% select(food.name.original) %>% distinct() %>% 
+  mutate_at("food.name.original", str_to_lower) %>% 
   left_join(total_qty %>% select(item_code, item) %>% distinct(), 
             by = c("food.name.original" = "item"))
 
@@ -91,20 +100,26 @@ fct_fao_codes <- fct_fao_codes %>%
   left_join(total_qty %>% select(item_code, item) %>% distinct(), 
             by = c("food.name.original" = "item"))
 
-#Meat, Aquatic Mammals not found in Africa (2768)
-#Sugar beet
-#Sugar cane
-#Sugar non-cen
-#sunflowerseeds
+#items w/o matching codes
+fct_fao_codes %>% filter(is.na(item_code)) 
 
-fao_codes <- c("2620", "2552", "2768",  #Meat, Aquatic Mammals not found in Africa took from world list
-  "2563", "2807", "2561", "2537" , #Sugar beet
-  "2536", #Sugar cane
+#Meat, Aquatic Mammals not found in Africa (2768)
+
+fao_codes <- c(
+  "2620",  #grapes
+  "2552", #groudnuts
+  "2768",  #Meat, Aquatic Mammals not found in Africa took from world list
+  "2563", #olives
+  "2807",  #rice 
+  "2561", #sesameseed
+# "2537" , #Sugar beet
+#  "2536", #Sugar cane
   "2541", #Sugar non-cen
   "2557", #sunflowerseeds
- "2533", 
- "2635" )
+#  "2533",   #sweet potato
+ "2635"  ) #tea
 
+qty %>% filter(item_code %in% fao_codes ) %>% distinct(item, item_code)
 
 fao_na <- fct_fao_codes %>% filter(is.na(item_code)) %>% 
   cbind(fao_codes) %>% select(-item_code) %>% 
@@ -112,21 +127,29 @@ fao_na <- fct_fao_codes %>% filter(is.na(item_code)) %>%
 
 fct_fao_codes <- fct_fao_codes %>% filter(!is.na(item_code)) %>% 
   rbind(fao_na) %>% 
-  mutate(food.name.original = str_replace(food.name.original, " and products", ""))
+  mutate(food.name.original = str_replace(food.name.original, " and products", "")) 
 
-fct <- fct %>% filter(region == "S") %>% mutate(region = "M") %>% 
-  rbind(fct) %>% left_join(., fct_fao_codes) %>% 
+fct_fao_codes %>% filter(is.na(item_code))
+
+#adding middle region to fct (acc. Joy et al., (2015))
+fct <- fct %>% filter(region == "W") %>% mutate(region = "M") %>% 
+  rbind(fct) %>% 
+  mutate_at("food.name.original", str_to_lower) %>% 
+  left_join(., fct_fao_codes) %>% 
   relocate(item_code, .before = food.name.original)
 
 total_qty$item_code <- as.character(total_qty$item_code)
+fct$item_code <- as.character(fct$item_code)
 
 fao_fct <- left_join(total_qty , fct, by = c("item_code", 
                             "Region" = "region"), keep = TRUE) %>% 
   filter(!is.na(Energy)) %>% 
   mutate_at(mn, as.numeric)
-  
-#%>% 
-  filter(is.na(Energy), total_value >0.1) %>% 
+
+#Food items NOT covered in the FCT  
+left_join(total_qty , fct, by = c("item_code", 
+                                  "Region" = "region"), keep = TRUE) %>%
+  filter(is.na(Energy)) %>% 
   distinct(item)
 
 
@@ -170,41 +193,42 @@ top10 <-  fao_fct %>% dplyr::select(c(item_code.x:total_value, ends_with("day"))
   slice_max(ave, n= 10) 
 
 #list of foods
-top10 %>% arrange(element) %>% distinct(item) %>% pull(item) %>% unique()
+food_list <- top10 %>% arrange(element) %>% distinct(item) %>% pull(item) %>% unique()
+ener_list1 <- top10 %>% filter(element == "Energy_cap_day") %>% arrange(item) %>%  pull(item) 
 
 #Table with the FAO food categories to be included
 
-x <- top10 %>% ungroup() %>% select(1:4) %>% filter(element != "total_value") %>% 
+top10 %>% ungroup() %>% select(1:4) %>% filter(element != "total_value") %>% 
   pivot_wider(names_from = element, 
               values_from = ave) %>% 
-  relocate(Energy_cap_day, .after = item) %>% arrange(desc(Energy_cap_day))
+  relocate(Energy_cap_day, .after = item) %>% arrange(desc(Energy_cap_day)) %>% 
+  write.csv(., here::here("output", "pre-selected-food-list-ssa.csv"), row.names = F)
+
+  
 
 # Need to compare Energy from FAOSTAT and pivot table to see items and quantities
 # Same items but slight different order. We have found discrepancies: 
 # we need to include plantain (from the energy both methods) and potatoes
 # remove sesame seeds and oilcrops, 
 
-x %>% filter(str_detect(item, "oil|Oil"))
 
-#binding the two dataset together
 
-fbs <- read_csv(here::here("data", "FBS-supply-SSA-2014-2018.csv")) %>% 
-  rbind(.,read_csv(here::here("data", "FBS-energy-SSA-2014-2018.csv"))) %>% 
-  janitor::clean_names()
-
-#Food supply: top-10 food categories by kcal and kg
+#Food supply: top-10 food categories by kcal to compare with our Energy calculations
 #calculating the yearly and region mean % of supply
 
-fbs <- fbs %>% 
+ener <- read_csv(here::here("data", supply)) %>%
+  janitor::clean_names() %>% filter(year < 2019, element_code != "664") %>% 
   group_by(element_code, element, item_code, item) %>% 
   summarise(ave = mean(value), 
             total = sum(value))
   
-top <- fbs %>% ungroup() %>% 
+ener_list2 <- ener %>% ungroup() %>% 
   group_by(element_code, element) %>% 
-  slice_max(ave, n= 10) 
+  slice_max(ave, n = 10) %>%  distinct(item) %>% 
+  arrange(item) %>% pull(item)
 
-top %>% distinct(item) %>% pull(item)
 
-rm(top)
+tolower(ener_list1) == tolower(ener_list2)
 
+all.equal(ener_list1, tolower(ener_list2))
+setdiff(ener_list1, tolower(ener_list2))
