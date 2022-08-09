@@ -1,0 +1,50 @@
+---
+title: "Protocol notes"
+author: "Segovia De La Revilla, Lucia"
+date: "07/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Selecting food items to be included in the review
+
+#### 1. Getting the data
+
+1. **Downloading Food supply data**: The data was downloaded from [FAOSTAT website](http://www.fao.org/faostat/en/). On "Data" tab, we accessed "Food Balances (2010-)" (under Food Balances). We selected:
+
+  - "Regions (FAO)" = Eastern Africa + (Total), Middle Africa + (Total),  Southern Africa + (Total), Western Africa + (Total).
+  - "Elements" = Food Supply quantity (kg/capita/yr), Food supply (kcal/capita/year).
+  - "Items" = "Select All" but "Population".
+  - "Years" = "Select All". (Which included from 2010-2018)
+
+Downloading date: 25/04/2021.
+
+
+2. **Downloading food composition data**: The data was obtained from Joy et al. (2014) (https://onlinelibrary.wiley.com/doi/full/10.1111/ppl.12144). Supporting Information: Table S2. Food mineral composition data from literature sources, used in conjunction with FBSs to estimate dietary mineral availability. File name: ppl12144-sup-0002-TableS2.xlsx. 
+
+Downloading date: 25/04/2021.
+
+## Matching food supply and food composition data
+
+Regional FCT were prepared to be matched with "old Food Balance Sheet", however we are using the "new" Food Balance Sheet. There methodological differences that need to be explored if we want to combine and use data from both (new and old), but that is beyond the scope of this review. Nevertheless, there is one arrange to be done. Rice and Groundnuts code have been change. This is because the reported commodity state is different (husked vs paddy and shelled vs in shell). We are not making any adjustments to this as we do are not using the data for analysis but for rough estimations of the importance of food items in supply. 
+
+## Limitations
+
+1. FAOSTAT website have been updating their datasets and methods which may lead to inconsistencies between the data used for this analysis and more recent versions of the datasets. For instance, some of the variable names may be different. 
+
+2. The selection of the food composition data used to determine the energy and mineral supply have an impact on the food list that will be selected. For instance, if we use the Southern Africa region FCT to be the Middle region FCT, instead of the Western region, there are two categories ("sesame seeds" and "sweet potatoes") that will be excluded from the selection, while "Oilcrops Oil, Other" will be included. However, we decided to follow the FCT authors' method (Joy et al., 2014), where they used Western FCT for the Middle region. 
+
+3. Items that were not reported in the FCT, and as we can see in the table below, however this is unlikely to change the food category selected as, only "miscellaneous" category was higher than zero.
+
+`r not_reported %>% mutate_at("mean", ~round(., 2)) %>% arrange(desc(mean)) %>% gt()`. 
+
+## Strenght
+
+1. We used regional food composition data to calculate minerla supplies. 
+
+2. We checked the list of foods against those that supplied 80% of the energy supply and we included all of them with exception of "sweeteners other". However, sweeteners are normally not a important source of mineral, hence we believe that it will not impact the overall results of our scoping review. 
+
+

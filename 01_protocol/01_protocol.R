@@ -15,11 +15,9 @@ library(gt)
 
 #loading path as downloaded from FAOSTAT
 
-supply <- paste0("FAOSTAT_data_", gsub("^0", "", format(Sys.Date(), "%m-%d-%Y")), ".csv")
-supply <- "FAOSTAT_data_4-25-2022.csv"
+supply <- "FBS_supply-regional-SSA_2014-2018.csv"
 
 fbs <- read_csv(here::here("data", supply))
-#fbs <- read_csv(here::here("data", "FBS_supply-regional-SSA_2014-2018.csv"))
 
 #regional FCDB: regional food composition data for SSA (Joy et al, 2014)
 #Concentration (100 g-1 fresh weight)
@@ -34,7 +32,6 @@ fct %>% select(3, 7) %>% distinct()
 
 #cleaning and preparing fct
 
-#mn <- c("Energy", "Ca", "Cu", "Fe", "I", "Mg", "Se", "Zn")
 mn <- c("Energy", "Ca",  "Fe", "I",  "Se", "Zn")
 
 fct <- fct %>% select(2:4, 8) %>%  filter(`...3` %in% mn) %>% 
@@ -45,7 +42,10 @@ fct <- fct %>% select(2:4, 8) %>%  filter(`...3` %in% mn) %>%
          food.name.original = "...4")
 
 
-#2) Calculating MN supply in SSA ----
+#2) Calculating mineral supply in SSA ----
+
+# 2.1) Cleaning the dataset w/ only the needed variables
+
 
 years <- c(2014:2018)
 
@@ -68,7 +68,7 @@ qty <- qty %>%
 # 2.2) Unit conversion and mean food supply per food category and region (year)   
 
 #Mean supply of the years 
-total_qty <- qty %>% group_by(item_code, item, area_code_fao, area, Region) %>% 
+total_qty <- qty %>% group_by(item_code, item, area_code, area, Region) %>% 
   summarise(total_value = mean(value)*10/365) %>%  #mean food supply per region 
   ungroup() %>%  arrange(desc(total_value)) %>% 
   mutate_at("item", str_to_lower)
@@ -159,7 +159,8 @@ fao_fct %>%
 
 glimpse(fao_fct)
 
-#TOP 10 - w/ energy calculated (compare w/ Energy from FAOSTAT)
+#TOP 10 - w/ energy calculated 
+#(compare w/ Energy from FAOSTAT below)
 
 top10 <-  fao_fct %>% dplyr::select(c(item_code.x:total_value, ends_with("day"))) %>% 
   pivot_longer(
@@ -173,54 +174,45 @@ top10 <-  fao_fct %>% dplyr::select(c(item_code.x:total_value, ends_with("day"))
   ungroup()  %>%   group_by(element) %>% 
   slice_max(ave, n= 10) 
 
-#list of foods
-food_list3 <- top10 %>% arrange(element) %>% distinct(item) %>% pull(item) %>% unique()
-ener_list1 <- top10 %>% filter(element == "Energy_cap_day") %>% arrange(item) %>%  pull(item) 
+## Checking category list ----
 
-#Table with the FAO food categories to be included
+#Checking cummulative Energy supply (80%)
+(data <- fao_fct %>% dplyr::select(c(item_code.x:total_value, ends_with("day"))) %>% 
+  pivot_longer(
+    cols = c(Energy_cap_day:Zn_cap_day), 
+    names_to = "element", 
+    values_to = "value"
+  ) %>% rename(item_code = "item_code.x") %>% 
+  group_by(element, item_code, item) %>% 
+  summarise(ave = mean(value, na.rm =T), 
+            total = sum(value)) %>% 
+  ungroup()  %>%   group_by(element) %>% 
+  mutate(perc = ave/sum(ave)*100) %>%
+  pivot_wider(names_from = element, 
+              values_from = c(ave,total, perc)) %>% 
+  relocate(perc_Energy_cap_day, .after = item) %>% 
+  arrange(desc(perc_Energy_cap_day)) %>% 
+  mutate(cum_Energy_cap_day = cumsum(perc_Energy_cap_day)) %>% 
+  relocate(cum_Energy_cap_day, .before = perc_Energy_cap_day)) 
+
+## OUTPUTS ------
+
+#Table with the FAO food categories to be included (excel)
 
 top10 %>% ungroup() %>% select(1:4) %>%
   #filter(element != "total_value") %>% 
   pivot_wider(names_from = element, 
               values_from = ave) %>% 
   relocate(Energy_cap_day, .after = item) %>% arrange(desc(Energy_cap_day)) %>% 
-  write.csv(., here::here("output", "pre-selected-food-list-ssa.csv"), row.names = F)
+  write.csv(., here::here("output", "pre-selected-food-list-ssa.csv"),
+            row.names = F)
 
-#Food supply: top-10 food categories by kcal to compare with our Energy calculations
-#calculating the yearly and region mean % of supply
 
-ener <- read_csv(here::here("data", supply)) %>%
-  janitor::clean_names() %>% filter(year %in% years, element_code == "664") %>% 
-  group_by(element_code, element, item_code, item) %>% 
-  summarise(ave = mean(value), 
-            total = sum(value))
-  
-ener_list2 <- ener %>% ungroup() %>% 
-  group_by(element_code, element) %>% 
-  slice_max(ave, n = 10) %>%  distinct(item) %>% 
-  arrange(item) %>% pull(item)
+#Table with the FAO food categories to be included (gt formatted)
 
-setdiff(tolower(ener_list1), tolower(ener_list2))
-
-tolower(ener_list1) == tolower(ener_list2)
-
-all.equal(ener_list1, tolower(ener_list2))
-
-#Difference between our Energy calculations and the one reported by the FAO
-setdiff(tolower(ener_list2),ener_list1)
-#setdiff(ener_list1, tolower(ener_list2))
-
-#Checking that they are all included in the final selection
-setdiff(tolower(ener_list2), food_list)
-
-#Table with the FAO food categories to be included
-
-#elements <- c("Energy_cap_day", "Ca_cap_day" ,"Cu_cap_day"  ,"Fe_cap_day","I_cap_day","Mg_cap_day", "Se_cap_day", "Zn_cap_day" )
 elements <- c("Energy_cap_day", "Ca_cap_day" ,
                 "Fe_cap_day","I_cap_day", "Se_cap_day", "Zn_cap_day" )
 
-c("Energy", "Ca" ,"Cu",
-  "Fe","I","Mg", "Se", "Zn" )
 
 top10 %>% ungroup() %>% select(1:4) %>% filter(element != "total_value") %>% 
   pivot_wider(names_from = element, 
