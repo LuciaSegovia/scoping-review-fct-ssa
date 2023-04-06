@@ -764,8 +764,8 @@ min_values %>%
   coord_flip()
 
 #Checking freshwater fish values as they are extremely high
-#Exceptions to the protocol were made in other to include more values
-#we are removing them from the analysis
+#We collected information on dried fish (not included in the protocol)
+#we are removing them for the analysis
 #Check value for AF0023 - W
 
 min_values %>% filter(food.category == "Freshwater Fish")

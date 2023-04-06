@@ -3,11 +3,8 @@
 #Results: Output 2b: Data type (including sources and geographic location) of
 #   mineral values in the FCTs/FCDBs included for pre-selected foods.
 
-
-
-library(tidyverse)
-library(gt)
-library(highcharter)
+library(tidyverse) # data wrangling
+library(gt) # tables generation
 
 #GETTING THE FINAL LIST OF ITEMS ###############
 
@@ -619,20 +616,6 @@ ref.mn1 %>% filter(ref_type_id == "av2",
               data_collection_location) %>%
   arrange(desc(n))
 
-data_long <- ref.mn1 %>% left_join(., output1 %>% select(fct.id, fct.name)) %>% 
-  select(fct.name, ref_type_id, fct.ref.location) %>% 
-  rename(source = "fct.name",
-         target = "fct.ref.location", 
-         ref = "ref_type_id") %>% 
-  relocate(source, .before = "ref") %>% 
-  filter(!is.na(ref), ref != "NA")
-
-hchart(data_to_sankey(data_long), "sankey",
-       name = "Food composition data in SSA: Data type and Geographic location") %>% 
- # hc_title(text= "Sankey Diagram") %>%
-  #hc_subtitle(text= "Food composition data in SSA: Data type and Geographic location") %>%
-  hc_plotOptions(series = list(dataLabels = list( style = list(fontSize = "15px"))))
-
 
 
 ref.mn1 %>% left_join(., output1 %>% select(fct.id, fct.name)) %>%
@@ -766,7 +749,7 @@ ref.mn1  %>%
 
 # WA0019 ==============
 
-source("01_pilot-output2.R")
+source(here::here("01_protocol", "01_pilot-output2.R"))
 
 wa.ref_location <- wa.ref_location %>% rename(fct.ref = "biblio") %>% 
   mutate_at("ref.location", ~str_replace(., "West-Africa", "Western Africa")) %>% 

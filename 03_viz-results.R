@@ -4,6 +4,7 @@
 library(dplyr)
 library(raster) # This is needed for coord. of countries (object world)
 library(tmap)    # for static and interactive maps
+library(highcharter) # for sanky graphs
 
 ## MAP (fig-2): Number of minerals reported per each FCTs -----
 
@@ -202,3 +203,23 @@ map_minerals <- tmap_arrange(map1, map2, map3)
 
 
 tmap_save(map_minerals, "output/geo-minerals_option2.png", width=1920, height=1080) 
+
+
+## Suppl. visualisation: Output 2b ----
+
+source(here::here("03_results-o2b.R"))
+
+data_long <- ref.mn1 %>% left_join(., output1 %>% select(fct.id, fct.name)) %>% 
+  select(fct.name, ref_type_id, fct.ref.location) %>% 
+  rename(source = "fct.name",
+         target = "fct.ref.location", 
+         ref = "ref_type_id") %>% 
+  relocate(source, .before = "ref") %>% 
+  filter(!is.na(ref), ref != "NA")
+
+hchart(data_to_sankey(data_long), "sankey",
+       name = "Food composition data in SSA: Data type and Geographic location") %>% 
+  # hc_title(text= "Sankey Diagram") %>%
+  #hc_subtitle(text= "Food composition data in SSA: Data type and Geographic location") %>%
+  hc_plotOptions(series = list(dataLabels = list( style = list(fontSize = "15px"))))
+
