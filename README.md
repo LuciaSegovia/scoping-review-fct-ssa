@@ -1,4 +1,4 @@
-# scoping-review-fct-ssa
+# The availability and geographic location of open-source food composition data used to estimate micronutrient intakes in sub-Saharan Africa: A scoping review
 
 This repo contains the scripts and datasets that were used to generate the list of food categories used in the protocol (01_protocol).
 
