@@ -1,5 +1,7 @@
 # The availability and geographic location of open-source food composition data used to estimate micronutrient intakes in sub-Saharan Africa: A scoping review
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10213390.svg)](https://doi.org/10.5281/zenodo.10213390)
+
 This repo contains the scripts and datasets that were used to generate the list of food categories used in the protocol (01_protocol).
 
 Segovia de la Revilla, L., Ferguson, E., Dooley, C., Osman, G., Joy,  E.J.M., Assessing the availability and geographic location of food composition data used to estimate micronutrient intake in sub-Saharan
